@@ -1,35 +1,56 @@
 const winston = require("winston");
+const path = require("path");
 
-// Membuat format log
-const logFormat = winston.format.combine(
-  winston.format.timestamp({ format: "YYYY-MM-DD HH:mm:ss" }), // Menambahkan timestamp pada setiap log
-  winston.format.printf(({ timestamp, level, message }) => {
-    return `${timestamp} ${level}: ${message}`;
-  })
-);
+// Mendapatkan environment
+const ENV = process.env.NODE_ENV || "development";
 
-// Konfigurasi logger
-const logger = winston.createLogger({
-  level: "info", // Level log default
-  format: logFormat,
-  transports: [
-    // Menyimpan log ke file 'app.log'
-    new winston.transports.File({ filename: "logs/app.log", level: "info" }),
+// Setup transport untuk development dan production
+const logTransports = [];
 
-    // Menampilkan log ke console
-    new winston.transports.Console({
+if (ENV === "production") {
+  // Pada production, simpan log ke file
+  logTransports.push(
+    new winston.transports.File({
+      filename: path.join(__dirname, "logs", "error.log"),
+      level: "error", // Menyimpan hanya log dengan level error ke file
       format: winston.format.combine(
-        winston.format.colorize(), // Menambahkan warna pada log
-        winston.format.simple() // Format log yang lebih sederhana
+        winston.format.timestamp(),
+        winston.format.errors({ stack: true }),
+        winston.format.json()
       ),
-    }),
-  ],
+    })
+  );
+} else {
+  // Pada development, tampilkan log di console
+  logTransports.push(
+    new winston.transports.Console({
+      level: "debug", // Tampilkan semua log, termasuk debug
+      format: winston.format.combine(
+        winston.format.colorize(),
+        winston.format.timestamp(),
+        winston.format.simple()
+      ),
+    })
+  );
+}
+
+// Membuat logger instance
+const logger = winston.createLogger({
+  level: "info", // Default level
+  transports: logTransports,
 });
 
-// Jika kita ingin menambahkan log ke file untuk level error saja
-if (process.env.NODE_ENV === "production") {
+// Menambahkan log ke file jika environment production
+if (ENV === "production") {
   logger.add(
-    new winston.transports.File({ filename: "error.log", level: "error" })
+    new winston.transports.File({
+      filename: path.join(__dirname, "logs", "combined.log"),
+      level: "info", // Simpan info dan level yang lebih tinggi ke file
+      format: winston.format.combine(
+        winston.format.timestamp(),
+        winston.format.json()
+      ),
+    })
   );
 }
 
